@@ -1,0 +1,32 @@
+name: Required Checks
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, edited]
+
+concurrency:
+  group: sem-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  work:
+    if: ${{ !contains(github.event.pull_request.title, 'SKIP') }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Slow when title has SLOW
+        env:
+          TITLE: ${{ github.event.pull_request.title }}
+        run: |
+          case "$TITLE" in *SLOW*) sleep 120;; esac
+      - name: Fail when title has FAIL
+        env:
+          TITLE: ${{ github.event.pull_request.title }}
+        run: |
+          case "$TITLE" in *FAIL*) exit 1;; esac
+
+  required-checks:
+    needs: [work]
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - if: contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled')
+        run: exit 1
